@@ -6,7 +6,7 @@ import axios from 'axios';
 export default function QRCodeScanner() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const requestIdRef = useRef<number>(null);
+  const requestIdRef = useRef<number | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
