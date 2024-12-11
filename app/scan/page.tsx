@@ -7,6 +7,7 @@ import axios from 'axios';
 
 export default function QRCodeScanner() {
   const [scanning, setScanning] = useState(false);
+  console.log(scanning);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
   
@@ -50,7 +51,11 @@ export default function QRCodeScanner() {
       const controls = await reader.decodeFromConstraints(
         constraints, 
         videoRef.current, 
-        (result: Result) => handleScan(result)
+        (result: Result | undefined) => {
+          if (result) {
+            handleScan(result);
+          }
+        }
       );
       controlsRef.current = controls;
       setScanning(true);
@@ -91,11 +96,11 @@ export default function QRCodeScanner() {
         let qrData;
         try {
           qrData = JSON.parse(scannedText);
-        } catch (parseError) {
+        } catch {
           // Attempt alternative parsing
           try {
             qrData = JSON.parse(scannedText.replace(/'/g, '"'));
-          } catch (fallbackError) {
+          } catch {
             throw new Error('Unable to parse QR code data');
           }
         }
@@ -162,7 +167,11 @@ export default function QRCodeScanner() {
       const controls = await readerRef.current.decodeFromConstraints(
         constraints,
         videoRef.current,
-        (result: Result) => handleScan(result)
+        (result: Result | undefined) => {
+          if (result) {
+            handleScan(result);
+          }
+        }
       );
       controlsRef.current = controls;
     } catch (err) {

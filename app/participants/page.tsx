@@ -3,10 +3,19 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 
+interface Participant {
+  name: string;
+  image: string;
+  email: string;
+  currentProfession: string;
+  investmentField: string;
+  isScanned: boolean;
+}
+
 export default function ParticipantsPage() {
-  const [participants, setParticipants] = useState([]);
+  const [participants, setParticipants] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     async function fetchParticipants() {
       try {
@@ -19,7 +28,11 @@ export default function ParticipantsPage() {
         setParticipants(data.data);
         setLoading(false);
       } catch (err) {
-        setError(err.message);
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError('An unknown error occurred');
+        }
         setLoading(false);
       }
     }
@@ -46,7 +59,7 @@ export default function ParticipantsPage() {
         {participants.map((participant) => {
           return (
             <div 
-              key={participant._id} 
+              key={participant.name} 
               className="bg-white shadow-md rounded-lg p-6 hover:shadow-xl transition-shadow"
             >
               <img 

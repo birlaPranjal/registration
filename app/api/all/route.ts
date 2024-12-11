@@ -10,6 +10,6 @@ export async function GET() {
         const registrations = await Registration.find({});
         return NextResponse.json({ data: registrations });
     } catch (error) {
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 });
     }
 }
