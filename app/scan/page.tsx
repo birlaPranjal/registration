@@ -65,7 +65,6 @@ export default function OptimizedQRCodeScanner() {
         codeReader.decodeFromVideoElement(videoElement, (result, error) => {
           if (result) {
             handleQRCodeScan(result.getText());
-            stopScanning(); // Stop after successful scan
           }
           if (error) {
             console.debug('Scanning debug:', error);
@@ -89,25 +88,45 @@ export default function OptimizedQRCodeScanner() {
         scannedText.replace(/'/g, '"').replace(/\\/g, '')
       );
 
-      if (!qrData._id) {
+      if (!qrData.name || !qrData.email) {
         throw new Error('Invalid QR code structure');
       }
 
       // Use axios with timeout for quick API response
       const response = await axios.post('/api/scan', qrData, {
-        timeout: 2000, // 2-second timeout
+        timeout: 5000, // 5-second timeout
       });
 
       if (response.data.success) {
-        setResult('Scan successful!');
+        setResult(`Scan successful for ${qrData.name}!`);
+        // Optional: Play a success sound or trigger haptic feedback
+        stopScanning(); // Stop scanning after successful registration
+      } else {
+        setError(response.data.message || 'Scan processing failed');
       }
     } catch (error) {
       console.error('QR processing error:', error);
-      setError(
-        error instanceof Error 
-          ? error.message 
-          : 'Scan processing failed'
-      );
+      
+      // More detailed error handling
+      if (axios.isAxiosError(error)) {
+        if (error.response) {
+          // Server responded with an error
+          setError(error.response.data.message || 'Server error during scan');
+        } else if (error.request) {
+          // Request made but no response
+          setError('No response from server. Check network connection.');
+        } else {
+          // Something happened in setting up the request
+          setError('Error preparing scan request');
+        }
+      } else {
+        // Handle non-axios errors
+        setError(
+          error instanceof Error 
+            ? error.message 
+            : 'Unexpected error during scan'
+        );
+      }
     }
   }, []);
 
@@ -118,6 +137,7 @@ export default function OptimizedQRCodeScanner() {
       scanIntervalRef.current = null;
     }
     if (codeReaderRef.current) {
+      codeReaderRef.current.reset();
       codeReaderRef.current = null;
     }
     setIsScanning(false);
@@ -131,7 +151,7 @@ export default function OptimizedQRCodeScanner() {
 
   return (
     <div className="container mx-auto p-4 max-w-md">
-      <h1 className="text-2xl font-bold mb-4">QR Code Scanner</h1>
+      <h1 className="text-2xl font-bold mb-4">Event Registration Scanner</h1>
 
       {/* Camera Selection */}
       {devices.length > 1 && (

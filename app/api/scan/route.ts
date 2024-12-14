@@ -7,11 +7,10 @@ export async function POST(request: NextRequest) {
     await dbConnect();
 
     try {
-        // Parse the request body
         const body = await request.json();
         const { name, email } = body;
 
-        // Validate input
+        // Enhanced input validation
         if (!name || !email) {
             return NextResponse.json({ 
                 success: false, 
@@ -19,38 +18,43 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
-        // Find and update the document
+        // Case-insensitive and trimmed matching
         const updatedRegistration = await Registration.findOneAndUpdate(
-            { name, email }, 
+            { 
+                name: { $regex: new RegExp(`^${name.trim()}$`, 'i') }, 
+                email: { $regex: new RegExp(`^${email.trim()}$`, 'i') } 
+            }, 
             { 
                 isScanned: true, 
                 scannedAt: new Date() 
             }, 
             { 
-                new: true,  // Return the updated document
-                runValidators: true  // Run model validations
+                new: true,  
+                runValidators: true  
             }
         );
 
-        // Handle case where no document is found
         if (!updatedRegistration) {
             return NextResponse.json({ 
                 success: false, 
-                message: 'Registration not found' 
+                message: 'No matching registration found. Please check details.' 
             }, { status: 404 });
         }
 
-        // Successful response
         return NextResponse.json({ 
             success: true, 
-            data: updatedRegistration 
+            message: `Successfully registered ${name}`,
+            data: {
+                name: updatedRegistration.name,
+                email: updatedRegistration.email,
+                scannedAt: updatedRegistration.scannedAt
+            }
         });
     } catch (error) {
-        // Handle any unexpected errors
         console.error('Update error:', error);
         return NextResponse.json({ 
             success: false, 
-            error: error instanceof Error ? error.message : 'An unknown error occurred'
+            message: error instanceof Error ? error.message : 'An unexpected error occurred'
         }, { status: 500 });
     }
 }
