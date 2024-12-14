@@ -1,91 +1,99 @@
 'use client';
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import Webcam from 'react-webcam';
-import { BrowserMultiFormatReader } from '@zxing/browser';
-import { DecodeHintType } from '@zxing/library';
+import React, { useState, useRef, useEffect } from 'react';
+import { Html5Qrcode, Html5QrcodeCameraScanConfig } from 'html5-qrcode';
 import axios from 'axios';
 
 export default function OptimizedQRCodeScanner() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
-  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState<boolean>(false);
+  const [cameras, setCameras] = useState<{id: string, label: string}[]>([]);
+  const [currentCameraIndex, setCurrentCameraIndex] = useState<number>(0);
 
-  const webcamRef = useRef<Webcam>(null);
-  const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
-  const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const qrCodeScannerRef = useRef<Html5Qrcode | null>(null);
+  const scannerContainerId = 'qr-code-scanner';
 
-  // Optimize device enumeration
-  const initializeDevices = useCallback(async () => {
-    try {
-      const mediaDevices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = mediaDevices.filter(
-        (device) => device.kind === 'videoinput'
-      );
-      setDevices(videoDevices);
-      if (videoDevices.length > 0) {
-        setSelectedDeviceId(videoDevices[0].deviceId);
+  // Initialize cameras
+  useEffect(() => {
+    const initializeCameras = async () => {
+      try {
+        const devices = await Html5Qrcode.getCameras();
+        setCameras(devices);
+      } catch (err) {
+        console.error('Error getting cameras:', err);
+        setError('Unable to access camera devices');
       }
-    } catch (err) {
-      console.error('Error enumerating devices:', err);
-      setError('Could not access camera devices');
-    }
+    };
+
+    initializeCameras();
   }, []);
 
-  // Optimize QR code scanning
-  const startQRScanning = useCallback(() => {
+  // Start QR Code scanning
+  const startScanning = async () => {
     // Reset previous states
     setError(null);
     setResult(null);
 
-    if (!webcamRef.current?.video || !selectedDeviceId) {
-      setError('Camera not ready');
+    if (cameras.length === 0) {
+      setError('No cameras available');
       return;
     }
 
-    // Configure decoding hints for faster scanning
-    const hints = new Map();
-    hints.set(DecodeHintType.TRY_HARDER, true);
-    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-      'QR_CODE', 
-      'DATA_MATRIX', 
-      'AZTEC'
-    ]);
+    try {
+      const html5QrCode = new Html5Qrcode(scannerContainerId, {
+        verbose: false,
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true
+        }
+      });
 
-    const codeReader = new BrowserMultiFormatReader(hints);
-    codeReaderRef.current = codeReader;
+      qrCodeScannerRef.current = html5QrCode;
 
-    const videoElement = webcamRef.current.video!;
+      const config: Html5QrcodeCameraScanConfig = {
+        fps: 10,
+        qrbox: 250,
+        aspectRatio: 1.0,
+        disableFlip: false,
+        videoConstraints: {
+          deviceId: cameras[currentCameraIndex].id
+        }
+      };
 
-    // Frequent but lightweight scanning
-    scanIntervalRef.current = setInterval(() => {
-      try {
-        codeReader.decodeFromVideoElement(videoElement, (result, error) => {
-          if (result) {
-            handleQRCodeScan(result.getText());
-          }
-          if (error) {
-            console.debug('Scanning debug:', error);
-          }
-        });
-      } catch (scanError) {
-        console.error('Scanning error:', scanError);
-        setError('Failed to start scanning');
-        stopScanning();
+      await html5QrCode.start(
+        cameras[currentCameraIndex].id, 
+        config, 
+        onScanSuccess, 
+        onScanFailure
+      );
+
+      setIsScanning(true);
+    } catch (err) {
+      console.error('Error starting scanner:', err);
+      setError('Failed to start QR code scanner');
+    }
+  };
+
+  // Stop scanning
+  const stopScanning = async () => {
+    try {
+      if (qrCodeScannerRef.current) {
+        await qrCodeScannerRef.current.stop();
+        qrCodeScannerRef.current.clear();
+        qrCodeScannerRef.current = null;
       }
-    }, 200); // Check every 200ms
+      setIsScanning(false);
+    } catch (err) {
+      console.error('Error stopping scanner:', err);
+    }
+  };
 
-    setIsScanning(true);
-  }, [selectedDeviceId]);
-
-  // Optimized scan handler with error parsing
-  const handleQRCodeScan = useCallback(async (scannedText: string) => {
+  // Handle successful QR code scan
+  const onScanSuccess = async (decodedText: string) => {
     try {
       // Flexible parsing with multiple fallback options
       const qrData = JSON.parse(
-        scannedText.replace(/'/g, '"').replace(/\\/g, '')
+        decodedText.replace(/'/g, '"').replace(/\\/g, '')
       );
 
       if (!qrData.name || !qrData.email) {
@@ -99,28 +107,24 @@ export default function OptimizedQRCodeScanner() {
 
       if (response.data.success) {
         setResult(`Scan successful for ${qrData.name}!`);
-        // Optional: Play a success sound or trigger haptic feedback
-        stopScanning(); // Stop scanning after successful registration
+        // Optional: Stop scanning after successful registration
+        await stopScanning();
       } else {
         setError(response.data.message || 'Scan processing failed');
       }
     } catch (error) {
       console.error('QR processing error:', error);
       
-      // More detailed error handling
+      // Detailed error handling
       if (axios.isAxiosError(error)) {
         if (error.response) {
-          // Server responded with an error
           setError(error.response.data.message || 'Server error during scan');
         } else if (error.request) {
-          // Request made but no response
           setError('No response from server. Check network connection.');
         } else {
-          // Something happened in setting up the request
           setError('Error preparing scan request');
         }
       } else {
-        // Handle non-axios errors
         setError(
           error instanceof Error 
             ? error.message 
@@ -128,74 +132,57 @@ export default function OptimizedQRCodeScanner() {
         );
       }
     }
-  }, []);
+  };
 
-  // Cleanup and stop scanning
-  const stopScanning = useCallback(() => {
-    if (scanIntervalRef.current) {
-      clearInterval(scanIntervalRef.current);
-      scanIntervalRef.current = null;
-    }
-    if (codeReaderRef.current) {
-      codeReaderRef.current.reset();
-      codeReaderRef.current = null;
-    }
-    setIsScanning(false);
-  }, []);
+  // Handle scan failure (optional)
+  const onScanFailure = (error?: string) => {
+    // Typically, you don't want to set an error for every failed scan
+    console.debug('Scan error:', error);
+  };
 
-  // Initialize devices on component mount
-  useEffect(() => {
-    initializeDevices();
-    return () => stopScanning();
-  }, []);
+  // Switch to next camera
+  const switchCamera = () => {
+    const nextIndex = (currentCameraIndex + 1) % cameras.length;
+    setCurrentCameraIndex(nextIndex);
+
+    // Restart scanning with new camera if currently scanning
+    if (isScanning) {
+      stopScanning().then(() => {
+        startScanning();
+      });
+    }
+  };
 
   return (
     <div className="container mx-auto p-4 max-w-md">
       <h1 className="text-2xl font-bold mb-4">Event Registration Scanner</h1>
 
       {/* Camera Selection */}
-      {devices.length > 1 && (
-        <div className="mb-4">
-          <label className="block mb-2 font-medium">Select Camera:</label>
-          <select
-            className="p-2 border rounded w-full"
-            onChange={(e) => {
-              setSelectedDeviceId(e.target.value);
-              stopScanning(); // Stop scanning when changing camera
-            }}
-            value={selectedDeviceId || ''}
-            disabled={isScanning}
+      {cameras.length > 1 && (
+        <div className="mb-4 flex space-x-2">
+          <button
+            onClick={switchCamera}
+            className="bg-gray-500 text-white p-2 rounded hover:bg-gray-600"
           >
-            {devices.map((device) => (
-              <option key={device.deviceId} value={device.deviceId}>
-                {device.label || `Camera ${device.deviceId}`}
-              </option>
-            ))}
-          </select>
+            Switch Camera
+          </button>
+          <span className="self-center">
+            Current Camera: {cameras[currentCameraIndex].label || `Camera ${currentCameraIndex + 1}`}
+          </span>
         </div>
       )}
 
-      {/* Webcam Feed */}
-      <div className="mb-4 w-full h-64 bg-gray-200 rounded-lg overflow-hidden">
-        {selectedDeviceId && (
-          <Webcam
-            ref={webcamRef}
-            videoConstraints={{
-              deviceId: selectedDeviceId,
-              width: { ideal: 1280 },
-              height: { ideal: 720 },
-              facingMode: 'environment'
-            }}
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-        )}
-      </div>
+      {/* QR Code Scanner Container */}
+      <div 
+        id={scannerContainerId} 
+        className="mb-4 w-full h-64 bg-gray-200 rounded-lg overflow-hidden"
+      />
 
       {/* Scanning Controls */}
       <div className="flex space-x-4 mb-4">
         <button
-          onClick={startQRScanning}
-          disabled={isScanning || !selectedDeviceId}
+          onClick={startScanning}
+          disabled={isScanning || cameras.length === 0}
           className="flex-1 bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:bg-blue-300"
         >
           {isScanning ? 'Scanning...' : 'Start Scanning'}
