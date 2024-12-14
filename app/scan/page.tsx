@@ -99,7 +99,7 @@ export default function OptimizedQRCodeScanner() {
       if (!qrData.name || !qrData.email) {
         throw new Error('Invalid QR code structure');
       }
-
+      console.log('QR Data:', qrData);
       // Use axios with timeout for quick API response
       const response = await axios.post('/api/scan', qrData, {
         timeout: 5000, // 5-second timeout
