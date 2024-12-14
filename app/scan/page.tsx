@@ -11,6 +11,7 @@ export default function OptimizedQRCodeScanner() {
   const [result, setResult] = useState<string | null>(null);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [isScanning, setIsScanning] = useState<boolean>(false);
 
   const webcamRef = useRef<Webcam>(null);
   const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
@@ -35,7 +36,14 @@ export default function OptimizedQRCodeScanner() {
 
   // Optimize QR code scanning
   const startQRScanning = useCallback(() => {
-    if (!webcamRef.current?.video || !selectedDeviceId) return;
+    // Reset previous states
+    setError(null);
+    setResult(null);
+
+    if (!webcamRef.current?.video || !selectedDeviceId) {
+      setError('Camera not ready');
+      return;
+    }
 
     // Configure decoding hints for faster scanning
     const hints = new Map();
@@ -65,8 +73,12 @@ export default function OptimizedQRCodeScanner() {
         });
       } catch (scanError) {
         console.error('Scanning error:', scanError);
+        setError('Failed to start scanning');
+        stopScanning();
       }
     }, 200); // Check every 200ms
+
+    setIsScanning(true);
   }, [selectedDeviceId]);
 
   // Optimized scan handler with error parsing
@@ -108,6 +120,7 @@ export default function OptimizedQRCodeScanner() {
     if (codeReaderRef.current) {
       codeReaderRef.current = null;
     }
+    setIsScanning(false);
   }, []);
 
   // Initialize devices on component mount
@@ -115,14 +128,6 @@ export default function OptimizedQRCodeScanner() {
     initializeDevices();
     return () => stopScanning();
   }, []);
-
-  // Start scanning automatically when camera is ready
-  useEffect(() => {
-    if (selectedDeviceId) {
-      startQRScanning();
-    }
-    return () => stopScanning();
-  }, [selectedDeviceId, startQRScanning]);
 
   return (
     <div className="container mx-auto p-4 max-w-md">
@@ -134,8 +139,12 @@ export default function OptimizedQRCodeScanner() {
           <label className="block mb-2 font-medium">Select Camera:</label>
           <select
             className="p-2 border rounded w-full"
-            onChange={(e) => setSelectedDeviceId(e.target.value)}
+            onChange={(e) => {
+              setSelectedDeviceId(e.target.value);
+              stopScanning(); // Stop scanning when changing camera
+            }}
             value={selectedDeviceId || ''}
+            disabled={isScanning}
           >
             {devices.map((device) => (
               <option key={device.deviceId} value={device.deviceId}>
@@ -160,6 +169,24 @@ export default function OptimizedQRCodeScanner() {
             style={{ width: '100%', height: '100%', objectFit: 'cover' }}
           />
         )}
+      </div>
+
+      {/* Scanning Controls */}
+      <div className="flex space-x-4 mb-4">
+        <button
+          onClick={startQRScanning}
+          disabled={isScanning || !selectedDeviceId}
+          className="flex-1 bg-blue-500 text-white p-2 rounded hover:bg-blue-600 disabled:bg-blue-300"
+        >
+          {isScanning ? 'Scanning...' : 'Start Scanning'}
+        </button>
+        <button
+          onClick={stopScanning}
+          disabled={!isScanning}
+          className="flex-1 bg-red-500 text-white p-2 rounded hover:bg-red-600 disabled:bg-red-300"
+        >
+          Stop Scanning
+        </button>
       </div>
 
       {/* Status and Error Displays */}
