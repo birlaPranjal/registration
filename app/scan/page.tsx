@@ -175,7 +175,8 @@ export default function OptimizedQRCodeScanner() {
       {/* QR Code Scanner Container */}
       <div 
         id={scannerContainerId} 
-        className="mb-4 w-full h-64 bg-gray-200 rounded-lg overflow-hidden"
+        className="mb-4 w-full h-96 bg-gray-200 rounded-lg overflow-hidden"
+        style={{ aspectRatio: '1 / 1' }}
       />
 
       {/* Scanning Controls */}

@@ -3,15 +3,13 @@ import dbConnect from '@/app/lib/dbConnect';
 import Registration from '@/app/models/User';
 
 export async function POST(request: NextRequest) {
-    // Ensure database connection
     await dbConnect();
 
     try {
-        // Parse the request body
         const body = await request.json();
-        const { name, email } = body;
+        const name = body.name.trim();  // Trim to avoid trailing spaces
+        const email = body.email;
 
-        // Validate input
         if (!name || !email) {
             return NextResponse.json({ 
                 success: false, 
@@ -19,20 +17,21 @@ export async function POST(request: NextRequest) {
             }, { status: 400 });
         }
 
-        // Find and update the document
         const updatedRegistration = await Registration.findOneAndUpdate(
-            { name, email }, 
             { 
-                isScanned: true, 
+                name: { $regex: new RegExp(`^${name}$`, 'i') },
+                email: { $regex: new RegExp(`^${email}$`, 'i') }
+            }, 
+            { 
+                isScanned: true,
                 scannedAt: new Date() 
             }, 
             { 
-                new: true,  // Return the updated document
-                runValidators: true  // Run model validations
+                new: true,
+                runValidators: true
             }
         );
 
-        // Handle case where no document is found
         if (!updatedRegistration) {
             return NextResponse.json({ 
                 success: false, 
@@ -40,16 +39,14 @@ export async function POST(request: NextRequest) {
             }, { status: 404 });
         }
 
-        // Successful response
         return NextResponse.json({ 
-            success: true, 
+            success: true,
             data: updatedRegistration 
         });
     } catch (error) {
-        // Handle any unexpected errors
-        console.error('Update error:', error);
+        console.error('Error updating registration:', error);
         return NextResponse.json({ 
-            success: false, 
+            success: false,
             error: error instanceof Error ? error.message : 'An unknown error occurred'
         }, { status: 500 });
     }
