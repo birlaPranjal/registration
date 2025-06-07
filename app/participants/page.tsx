@@ -7,8 +7,7 @@ interface Participant {
   name: string;
   image: string;
   email: string;
-  currentProfession: string;
-  investmentField: string;
+  role: string;
   isScanned: boolean;
 }
 
@@ -24,7 +23,6 @@ export default function ParticipantsPage() {
           throw new Error('Failed to fetch participants');
         }
         const data = await response.json();
-        console.log(data);
         setParticipants(data.data);
         setLoading(false);
       } catch (err) {
@@ -36,7 +34,6 @@ export default function ParticipantsPage() {
         setLoading(false);
       }
     }
-
     fetchParticipants();
   }, []);
 
@@ -53,40 +50,38 @@ export default function ParticipantsPage() {
       <Head>
         <title>Event Participants</title>
       </Head>
-      <h1 className="text-3xl font-bold mb-6 text-center">Event Participants</h1>
-      
+      <h1 className="text-3xl font-bold mb-6 text-center">Event Teams & Members</h1>
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {participants.map((participant) => {
-          return (
-            <div 
-              key={participant.name} 
-              className="bg-white shadow-md rounded-lg p-6 hover:shadow-xl transition-shadow"
-            >
-              <img 
-                src={participant.image} 
-                alt={`${participant.name}'s profile`} 
-                className=" rounded-lg mb-4"
-              />
-              <h2 className="text-xl text-black font-semibold mb-2">{participant.name}</h2>
-              <p className="text-gray-600 mb-2">
-                <strong>Email:</strong> {participant.email}
-              </p>
-              <p className="text-gray-600 mb-2">
-                <strong>Profession:</strong> {participant.currentProfession}
-              </p>
-              <p className="text-gray-600 mb-2">
-                <strong>Investment Interest:</strong> {participant.investmentField}
-              </p>
-              <div className="mt-4 text-sm">
-                <span className={`px-3 py-1 rounded-full ${
-                  participant.isScanned ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'
-                }`}>
-                  {participant.isScanned ? 'Checked In' : 'Not Checked In'}
-                </span>
-              </div>
+        {participants.map((participant) => (
+          <div
+            key={participant.email}
+            className="bg-white shadow-md rounded-lg p-6 hover:shadow-xl transition-shadow"
+          >
+            <img
+              src={participant.image}
+              alt={`${participant.name}'s QR code`}
+              className="rounded-lg mb-4"
+            />
+            <h2 className="text-xl text-black font-semibold mb-2">{participant.name}</h2>
+            <p className="text-gray-600 mb-2">
+              <strong>Team:</strong> {participant.role}
+            </p>
+            <p className="text-gray-600 mb-2">
+              <strong>Email:</strong> {participant.email}
+            </p>
+            <div className="mt-4 text-sm">
+              <span
+                className={`px-3 py-1 rounded-full ${
+                  participant.isScanned
+                    ? 'bg-green-200 text-green-800'
+                    : 'bg-yellow-200 text-yellow-800'
+                }`}
+              >
+                {participant.isScanned ? 'Present' : 'Absent'}
+              </span>
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </div>
   );

@@ -28,9 +28,17 @@ const RegistrationSchema = new mongoose.Schema({
   scannedAt: {
     type: Date,
     default: null
+  },
+  currentProfession: {
+    type: String,
+    default: ''
+  },
+  investmentField: {
+    type: String,
+    default: ''
   }
 }, {
-  timestamps: true
+  timestamps: true,
 });
 
 // Prevent recompiling the model

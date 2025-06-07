@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
 
     try {
         const body = await request.json();
-        const name = body.name.trim();  // Trim to avoid trailing spaces
+        const name = body.name?.trim();
         const email = body.email;
 
         if (!name || !email) {

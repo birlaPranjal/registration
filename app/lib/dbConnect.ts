@@ -1,11 +1,14 @@
 import mongoose from 'mongoose';
 
-const MONGODB_URI = 'mongodb+srv://birlapranjal460:CcPMWXRkNm8uin6a@cluster0.rr7mh.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0';
-const DB_NAME = 'eventregistrations';
+const MONGODB_URI = process.env.MONGODB_URI;
+if (!MONGODB_URI) {
+    throw new Error('MONGODB_URI is not defined');
+}
+
 
 const dbConnect = async () => {
     try {
-        await mongoose.connect(MONGODB_URI, { dbName: DB_NAME });
+        await mongoose.connect(MONGODB_URI);
         console.log('Connected to MongoDB');
     } catch (error) {
         console.error('Failed to connect to MongoDB', error);
